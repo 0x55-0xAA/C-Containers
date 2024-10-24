@@ -74,7 +74,7 @@ struct darray_meta {
  * @internal
  */
 #define darray_set_size(darray_ptr,__size)                                                                      \
-        do {                                                                                                    \                                      
+        do {                                                                                                    \
                 if (darray_ptr) {                                                                               \
                         darray_arr_to_meta(darray_ptr)->size = (__size);                                        \
                 }                                                                                               \
@@ -88,8 +88,8 @@ struct darray_meta {
 #define darray_set_capacity(darray_ptr,__capacity)                                                              \
         do {                                                                                                    \
                 if (darray_ptr) {                                                                               \
-                        darray_arr_to_meta(darray_ptr)->capacity = (__capacity);                                \                                            
-                }                                                                                               \       
+                        darray_arr_to_meta(darray_ptr)->capacity = (__capacity);                                \
+                }                                                                                               \
         } while (0)
 
 /**
@@ -118,25 +118,39 @@ struct darray_meta {
                         void *darray_old_ptr__ = darray_arr_to_meta(darray_ptr);                                \
                         void *darray_new_ptr__ = darray_clib_realloc(darray_old_ptr__,darray_new_size__);       \
                         assert(darray_new_ptr__);                                                               \
-                        (darray_ptr) = darray_meta_to_arr(darray_new_ptr__);                                    \                        
+                        (darray_ptr) = darray_meta_to_arr(darray_new_ptr__);                                    \
                 }else {                                                                                         \
                         void *darray_init_ptr__ = darray_clib_malloc(darray_new_size__);                        \
                         assert(darray_init_ptr__);                                                              \
                         (darray_ptr) = darray_meta_to_arr(darray_init_ptr__);                                   \
                         darray_set_size((darray_ptr),0);                                                        \
                         darray_set_destructor((darray_ptr),NULL);                                               \
-                }                                                                                               \        
-                darray_set_capacity((darray_ptr),(count));                                                      \                                                                                                       
+                }                                                                                               \
+                darray_set_capacity((darray_ptr),(count));                                                      \
         } while (0)
 
 #define darray_init(darray_ptr,__capacity,__dtr)                                                                \
         do {                                                                                                    \
                 if (!(darray_ptr)) {                                                                            \
                         darray_reserve((darray_ptr),(__capacity));                                              \
-                        darray_set_destructor((darray_ptr),(__dtr));                                            \                                       
-                }                                                                                               \               
+                        darray_set_destructor((darray_ptr),(__dtr));                                            \
+                }                                                                                               \
         } while (0)
 
+#define darray_free(darray_ptr)                                                                                 \
+        do {                                                                                                    \
+                if (darray_ptr) {                                                                               \
+                        arr_ele_destructor arr_destructor__ = darray_elements_dtr(darray_ptr);                  \
+                        void *meta_data__ = darray_arr_to_meta(darray_ptr);                                     \
+                        if (arr_destructor__) {                                                                 \
+                                size_t __i;                                                                     \
+                                for (__i = 0;__i < darray_size(darray_ptr);__i++) {                             \
+                                        arr_destructor__(&(darray_ptr)[__i]);                                   \
+                                }                                                                               \
+                        }                                                                                       \
+                        darray_clib_free(meta_data__);                                                          \
+                }                                                                                               \
+        } while (0)             
 
 /**
  * @brief get the capacity of darray
@@ -160,7 +174,7 @@ struct darray_meta {
  * @return function pointer
  */
 #define darray_elements_dtr(darray_ptr)                                                                          \
-        ((darray) ? darray_arr_to_meta(darray_ptr)->fn_dtr : NULL)
+        ((darray_ptr) ? darray_arr_to_meta(darray_ptr)->fn_dtr : NULL)
         
 /**
  * @brief get whether darray is empty
@@ -178,7 +192,7 @@ struct darray_meta {
                 }                                                                                               \
         } while (0)                                                     
 
-#define darray_reserve(darray_ptr,new_cap)                                                                      \ 
+#define darray_reserve(darray_ptr,new_cap)                                                                      \
         do {                                                                                                    \
                 const size_t __darray_capacity = darray_capacity((darray_ptr));                                 \
                 if (__darray_capacity < (new_cap)) {                                                            \
@@ -186,7 +200,100 @@ struct darray_meta {
                 }                                                                                               \
         } while (0)
 
-#define darray_clear(darray_ptr)                                                                                \                                       
+#define darray_clear(darray_ptr)                                                                                \
+        do {                                                                                                    \
+                if (darray_ptr) {                                                                               \
+                        arr_ele_destructor arr_destructor__ = darray_elements_dtr(darray_ptr);                  \
+                        size_t __i;                                                                             \
+                        for (__i = 0;__i < darray_size(darray_ptr);__i++) {                                     \
+                                arr_ele_destructor(&(darray_ptr)[__i]);                                         \
+                        }                                                                                       \
+                        darray_set_size((darray_ptr),0);                                                        \
+                }                                                                                               \
+        } while (0)
 
-                     
+#define darray_erase(darray_ptr,index)                                                                          \
+        do {                                                                                                    \
+                if (darray_ptr) {                                                                               \
+                        const size_t __size = darray_size(darray_ptr);                                          \
+                        if ((index) < __size) {                                                                 \
+                                arr_ele_destructor arr_destructor__ = darray_elements_dtr(darray_ptr);          \
+                                if (arr_destructor__) {                                                         \
+                                        arr_destrcutor__(&(darray_ptr)[(index)]);                               \
+                                }                                                                               \
+                                memmove((darray_ptr) + (index),                                                 \
+                                (darray_ptr) + (index) + 1,                                                     \
+                                sizeof(*(darray_ptr)) * (__size - 1 - (index)));                                \
+                                darray_set_size(__size - 1);                                                    \
+                        }                                                                                       \
+                }                                                                                               \
+        } while (0)
+
+#define darray_calculate_growth(size)                                                                           \
+        ((size) ? ((size) << 1) : 1)                                                                            \
+
+#define darray_insert(darray_ptr,position,val)                                                                  \
+        do {                                                                                                    \
+                size_t __capacity = darray_capacity(darray_ptr);                                                \
+                if(__capacity <= darray_size(darray_ptr)) {                                                     \
+                        darray_grow(darray_ptr,darray_calculate_growth(__capacity));                            \
+                }                                                                                               \
+                if ((position) < darray_size(darray_ptr)) {                                                     \
+                        memmove((darray_ptr) + (position) + 1,                                                  \
+                        (darray_ptr) + (position),                                                              \
+                        sizeof(*(darray_ptr)) * ((darray_size(darray_ptr)) - (position)));                      \
+                }                                                                                               \
+                (darray_ptr)[(position)] = (val);                                                               \
+                darray_set_size((darray_ptr),darray_size(darray_ptr) + 1);                                      \
+        } while (0)
+
+#define darray_push_back(darray_ptr,val)                                                                        \
+        do {                                                                                                    \
+                size_t __capacity = darray_capacity(darray_ptr);                                                \
+                if (__capacity <= darray_size(darray_ptr)) {                                                    \
+                        darray_grow(darray_ptr,darray_calculate_growth(__capacity));                            \
+                }                                                                                               \
+                (darray_ptr)[darray_size(darray_ptr)] = (val);                                                  \
+                darray_set_size((darray_ptr),darray_size(darray_ptr) + 1);                                      \
+        } while(0)
+
+
+#define darray_pop_back(darray_ptr)                                                                             \
+        do {                                                                                                    \
+                arr_ele_destructor arr_destructor__ = darray_elements_dtr(darray_ptr);                          \
+                if (arr_destructor__) {                                                                               \
+                        arr_destructor__(&(darray_ptr)[darray_size(darray_ptr) - 1]);                           \
+                }                                                                                               \
+                darray_set_size((darray_ptr),darray_size(darray_ptr) - 1);                                      \
+        } while (0)
+
+#define darray_swap(darray_ptr,__other,type)                                                                    \
+        do {                                                                                                    \
+                if (darray_ptr && __other) {                                                                    \
+                        darray_elements_type_ptr(type) __temp = (darray_ptr);                                   \
+                        (darray_ptr) = (__other);                                                               \
+                        (__other) = (__temp);                                                                   \
+                }                                                                                               \
+        } while(0)
+
+#define darray_copy(darray_ptr_dest,darray_ptr_src)                                                             \
+        do {                                                                                                    \
+                if (darray_ptr_src) {                                                                           \
+                        darray_grow(darray_ptr_dest,darray_size(darray_ptr_src));                               \
+                        darray_set_size(darray_ptr_dest,darray_size(darray_ptr_src));                           \
+                        memmove((darray_ptr_dest),                                                              \
+                        (darray_ptr_src),                                                                       \
+                        sizeof(*(darray_ptr_from)) * darray_size(darray_ptr_src));                              \
+                }                                                                                               \
+        } while(0)
+
+#define darray_at(darray_ptr,index)                                                                             \
+        ((darray_ptr) ? (((int)(index) < 0 || (size_t)(index) >= darray_size(darray_ptr)) ? NULL : &(darray_ptr)[(index)]):NULL)      \
+
+#define darray_front(darray_ptr)                                                                                \
+        ((darray_ptr) ? (darray_size(darray_ptr) > 0 ? darray_at(darray_ptr,0) : NULL) : NULL)                  \
+
+#define darray_back(darray_ptr)                                                                                 \
+        ((darray_ptr) ? (darray_size(darray_ptr) > 0 ? darray_at(darray_ptr,darray_size(darray_ptr) - 1) : NULL) : NULL) \
+
 #endif // DYNAMIC_ARRAY_H
