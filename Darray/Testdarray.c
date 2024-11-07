@@ -16,6 +16,5 @@ int main(void) {
         printf("%d\n",*darray_back(d));
         darray_pop_back(d);
         printf("%d\n",*darray_back(d));
-
         return 0;        
 }

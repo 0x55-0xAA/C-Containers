@@ -128,7 +128,7 @@ struct darray_meta {
                 }                                                                                               \
                 darray_set_capacity((darray_ptr),(count));                                                      \
         } while (0)
-
+ 
 #define darray_init(darray_ptr,__capacity,__dtr)                                                                \
         do {                                                                                                    \
                 if (!(darray_ptr)) {                                                                            \
